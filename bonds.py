@@ -10,7 +10,7 @@
 #   python3 bonds.py
 #                Copyright (c) 2018 - 2020 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
-#  Модифицирован: 8 апреля 2020 г.
+#  Модифицирован: 29 апреля 2020 г.
 # ******************************************************************************
 
 # -*- coding: utf-8 -*-
@@ -20,7 +20,7 @@ import pandas as pd
 import time
 
 # Ключевая ставка ЦБ РФ.
-KEY_RATE = 4.5
+KEY_RATE = 6
 # Дата, с которой купоны корпоративных облигаций освобождены от НДФЛ, если
 # ставка купона не превышает на 5 п.п. ключевую ставку.
 FREE_TAX = datetime.datetime(2017, 1, 1)
@@ -173,8 +173,9 @@ def parse_payments(fileName, taxRating, datePlacement):
         sumPayments += df.loc[i, 'coupon'] - tax(df.loc[i, 'coupon'],
                                                  df.loc[i, 'rate'],
                                                  taxRating, datePlacement)
+        lastDate = df.loc[i, 'date']
     result = '%10.2f' % sumPayments
-    return result.strip()
+    return result.strip() + ';' + lastDate.strftime('%d.%m.%Y')
 
 
 # ******************************************************************************
