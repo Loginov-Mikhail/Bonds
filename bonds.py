@@ -4,20 +4,23 @@
 # необходимые данные и выводит их на экран, а также сохраняет эту информацию в
 # файл output.txt. Полученный файл можно открыть в табличном процессоре
 # (например, MS Excel) для дальнейшей обработки.
-#   Для запуска программы необходим Python 3.0
+#   Для запуска программы необходим Python 3.0 и библиотеки pandas, lxml, bs4,
+# html5lib.
 #   При выполнении в командной строке:
 #   python3 bonds.py
 #                Copyright (c) 2018 - 2020 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
-#  Модифицирован: 7 января 2020 г.
+#  Модифицирован: 8 апреля 2020 г.
 # ******************************************************************************
 
 # -*- coding: utf-8 -*-
 import urllib.request
 import datetime
+import pandas as pd
+import time
 
 # Ключевая ставка ЦБ РФ.
-KEY_RATE = 6.5
+KEY_RATE = 4.5
 # Дата, с которой купоны корпоративных облигаций освобождены от НДФЛ, если
 # ставка купона не превышает на 5 п.п. ключевую ставку.
 FREE_TAX = datetime.datetime(2017, 1, 1)
@@ -27,6 +30,7 @@ FREE_TAX = datetime.datetime(2017, 1, 1)
 # Процедура сохранения страницы во временный файл
 # ******************************************************************************
 def load_url(url):
+    time.sleep(0.5)
     response = urllib.request.urlopen(url).read().decode('cp1251')
     f = open('temp.html', 'w', encoding='cp1251')
     f.write(response)
@@ -123,7 +127,7 @@ def parse_info(fileName):
 # Функция парсинга страниц bonds.finam.ru с информацией о платежах по облига-
 # ции. Результат - строка с совокупным купонным доходом, очищенным от налогов.
 # ******************************************************************************
-def parse_payments(fileName, taxRating, datePlacement):
+def parse_payments2(fileName, taxRating, datePlacement):
     f = open(fileName, 'r', encoding='cp1251')
     sumPayments = 0
     for line in f:
@@ -140,6 +144,37 @@ def parse_payments(fileName, taxRating, datePlacement):
                                                              datePlacement)
     f.close()
     return str(sumPayments)
+
+
+def parse_payments(fileName, taxRating, datePlacement):
+    # Поиск таблицы с данными о платежах
+    for i in range(8):
+        df = pd.read_html(fileName)[i]
+        if df.columns.dtype == 'object':
+            break
+    # Удаление мусора из найденной таблицы
+    df = df.iloc[:, [1, 2, 4]]
+    cols = ['date', 'rate', 'coupon']
+    df.set_axis(cols, axis='columns', inplace=True)
+    df = df.dropna()
+    df = df[df['date'].str.len() < 12]
+    df['date'] = pd.to_datetime(df['date'], format='%d.%m.%Y')
+    df['rate'] = df['rate'].str.replace('%', '')
+    df['rate'] = df['rate'].str.replace(',', '.')
+    df['coupon'] = df['coupon'].str.replace(u'\u00a0RUR', '')
+    df['coupon'] = df['coupon'].str.replace(',', '.')
+    df['coupon'] = pd.to_numeric(df['coupon'], downcast='float')
+    df['rate'] = pd.to_numeric(df['rate'], downcast='float')
+    today = datetime.datetime.today()
+    df = df[df['date'] > today].reset_index(drop=True)
+    # Вычисление совокупного купонного дохода
+    sumPayments = 0
+    for i in range(len(df)):
+        sumPayments += df.loc[i, 'coupon'] - tax(df.loc[i, 'coupon'],
+                                                 df.loc[i, 'rate'],
+                                                 taxRating, datePlacement)
+    result = '%10.2f' % sumPayments
+    return result.strip()
 
 
 # ******************************************************************************
