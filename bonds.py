@@ -70,6 +70,9 @@ def parse_payments(fileName):
         df = pd.read_html(fileName)[i]
         if df.columns.dtype == 'object':
             break
+    # Число столбцов (16) правильной таблицы установлено экпериментально
+    if df.shape[1] < 16:
+        return '0'
     # Удаление мусора из найденной таблицы
     df = df.iloc[:, [1, 2, 4]]
     cols = ['date', 'rate', 'coupon']
