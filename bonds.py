@@ -5,12 +5,12 @@
 # файл output.txt. Полученный файл можно открыть в табличном процессоре
 # (например, MS Excel) для дальнейшей обработки.
 #   Для запуска программы необходим Python 3.0 и библиотеки pandas, lxml, bs4,
-# html5lib.
+# html5lib, xlwt.
 #   При выполнении в командной строке:
 #   python3 bonds.py
 #                Copyright (c) 2018 - 2021 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
-#  Модифицирован: 23 июня 2021 г.
+#  Модифицирован: 15 ноября 2021 г.
 # ******************************************************************************
 
 # -*- coding: utf-8 -*-
@@ -57,7 +57,8 @@ def parse_info(fileName):
         if line.count('Номинал:') > 0:  # Номинал
             nominal = int(line.split('span>')[1][:-2].replace('\xa0', ''))
     f.close()
-    return name + ';' + codeISIN + ';' + redemption + ';' + str(nominal)
+    return {'name': name, 'isin': codeISIN, 'redemption': redemption,
+            'nominal': nominal}
 
 
 # ******************************************************************************
@@ -72,46 +73,43 @@ def parse_payments(fileName):
             break
     # Число столбцов (16) правильной таблицы установлено экпериментально
     if df.shape[1] < 16:
-        return '0'
+        return 0
     # Удаление мусора из найденной таблицы
-    df = df.iloc[:, [1, 2, 4]]
-    cols = ['date', 'rate', 'coupon']
+    df = df.iloc[:, [1, 4]]
+    cols = ['date', 'coupon']
     df.set_axis(cols, axis='columns', inplace=True)
     df = df.dropna()
     df = df[df['date'].str.len() < 12]
     df['date'] = pd.to_datetime(df['date'], format='%d.%m.%Y')
-    df['rate'] = df['rate'].str.replace('%', '')
-    df['rate'] = df['rate'].str.replace(',', '.')
     df['coupon'] = df['coupon'].str.replace(u'\u00a0RUR', '')
     df['coupon'] = df['coupon'].str.replace(',', '.')
     df['coupon'] = pd.to_numeric(df['coupon'], downcast='float')
-    df['rate'] = pd.to_numeric(df['rate'], downcast='float')
     today = datetime.datetime.today()
     df = df[df['date'] > today].reset_index(drop=True)
     # Вычисление совокупного купонного дохода
     sumPayments = 0
     for i in range(len(df)):
         sumPayments += 0.87 * df.loc[i, 'coupon']
-    result = '%10.2f' % sumPayments
-    return result.strip()
+    return round(sumPayments, 2)
 
 
 # ******************************************************************************
 #                       Текст основной программы
 # ******************************************************************************
 
+dfOut = pd.DataFrame(columns=['name', 'isin', 'redemption', 'nominal',
+                              'coupon', 'url'])
 fileInput = open('input.txt', 'r')
-fileOutput = open('output.txt', 'w')
-i = 0
 for line in fileInput:
     url = line.replace('/default.asp', '00002/default.asp')
     load_url(url)
-    newData = parse_info('temp.html')
-    payments = parse_payments('temp.html')
-    result = newData
-    i = i + 1
-    result = result + ';' + payments.replace('.', ',') + ';' + url
-    print(str(i) + ';' + result[:-1])
-    fileOutput.write(result)
+    newRow = parse_info('temp.html')
+    newRow['coupon'] = parse_payments('temp.html')
+    newRow['url'] = url[:-1]
+    print(newRow)
+    dfOut = dfOut.append(newRow, ignore_index=True)
 fileInput.close()
-fileOutput.close()
+dfOut['redemption'] = pd.to_datetime(dfOut['redemption'], format='%d.%m.%Y')
+dfOut = dfOut[dfOut['isin'].str.rfind('RU') > -1]
+with pd.ExcelWriter('output.xls', datetime_format='DD.MM.YYYY') as writer:
+    dfOut.to_excel(writer, index=False, float_format='%.2f')
