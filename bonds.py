@@ -2,21 +2,24 @@
 #   Программа bonds.py считывает из файла input.txt URL-адреса, скачивает с
 # сайта bonds.finam.ru страницы с информацией об облигациях, выбирает оттуда
 # необходимые данные и выводит их на экран, а также сохраняет эту информацию в
-# файл output.txt. Полученный файл можно открыть в табличном процессоре
+# файл output.xlsx. Полученный файл можно открыть в табличном процессоре
 # (например, MS Excel) для дальнейшей обработки.
 #   Для запуска программы необходим Python 3.0 и библиотеки pandas, lxml, bs4,
-# html5lib, xlwt.
+# html5lib, xlwt, openpyxl.
 #   При выполнении в командной строке:
 #   python3 bonds.py
-#                Copyright (c) 2018 - 2021 Логинов М.Д.
+#                Copyright (c) 2018 - 2022 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
-#  Модифицирован: 15 ноября 2021 г.
+#  Модифицирован: 13 сентября 2022 г.
 # ******************************************************************************
 
 # -*- coding: utf-8 -*-
 import urllib.request
 import datetime
+
+import openpyxl
 import pandas as pd
+# from openpyxl.styles.numbers import FORMAT_PERCENTAGE_00
 
 
 # ******************************************************************************
@@ -109,7 +112,42 @@ for line in fileInput:
     print(newRow)
     dfOut = dfOut.append(newRow, ignore_index=True)
 fileInput.close()
-dfOut['redemption'] = pd.to_datetime(dfOut['redemption'], format='%d.%m.%Y')
+dfOut['redemption'] = pd.to_datetime(dfOut['redemption']).dt.date
 dfOut = dfOut[dfOut['isin'].str.rfind('RU') > -1]
-with pd.ExcelWriter('output.xls', datetime_format='DD.MM.YYYY') as writer:
-    dfOut.to_excel(writer, index=False, float_format='%.2f')
+dfOut.set_axis(['Наименование', 'ISIN код', 'Дата погашения', 'Номинал', 'Купон', 'url'],
+                axis='columns', inplace=True)
+dfOut['Цена, %'] = 100.01
+dfOut['НКД'] = 123.01
+print(list(range(dfOut.shape[0])))
+dfOut['Покупка'] = list(map(lambda x: f'=F{x + 2}*D{x + 2}/100+G{x + 2}', list(range(len(dfOut)))))
+dfOut['Продажа'] = list(map(lambda x: f'=IF(F{x + 2}<100,D{x + 2}+E{x + 2}-0.13*(100-F{x + 2})*D{x + 2}/100,'
+                                      f'D{x + 2}+E{x + 2})', list(range(len(dfOut)))))
+dfOut['%'] = list(map(lambda x: f'=365*(I{x + 2}-H{x + 2})/(H{x + 2}*(C{x + 2}-TODAY()))', list(range(len(dfOut)))))
+dfOut['Результат инвестиций'] = list(map(lambda x: f'=ROUNDDOWN($N$1/H{x + 2},0)*I{x + 2}', list(range(len(dfOut)))))
+# dfOut['Покупка'] = dfOut.reset_index().index + 2
+dfOut['Адрес'] = dfOut['url']
+del dfOut['url']
+with pd.ExcelWriter('output.xlsx', engine='openpyxl', date_format='DD.MM.YYYY') as writer:
+    dfOut.to_excel(writer, sheet_name='Выбор облигаций', index=False, float_format='%.2f')
+wb = openpyxl.load_workbook('output.xlsx')
+ws = wb.active
+ws.column_dimensions['A'].width = 50
+ws.column_dimensions['B'].width = 15
+ws.column_dimensions['C'].width = 12
+ws.column_dimensions['D'].width = 10
+ws.column_dimensions['E'].width = 10
+ws.column_dimensions['F'].width = 10
+ws.column_dimensions['G'].width = 10
+ws.column_dimensions['H'].width = 10
+ws.column_dimensions['I'].width = 10
+ws.column_dimensions['J'].width = 10
+ws.column_dimensions['K'].width = 10
+ws.column_dimensions['L'].width = 53
+ws['M1'] = 'Сумма инвестиций'
+ws['N1'] = 100000
+ws.column_dimensions['C'].number_format = openpyxl.styles.numbers.FORMAT_DATE_DDMMYY
+for i in range(len(dfOut)):
+    ws[f'C{i + 2}'].number_format = 'DD.MM.YYYY'
+ws.column_dimensions['J'].number_format = openpyxl.styles.numbers.FORMAT_PERCENTAGE_00
+wb.save('output.xlsx')
+wb.close()
