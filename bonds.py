@@ -127,6 +127,7 @@ dfOut['Результат инвестиций'] = list(map(lambda x: f'=ROUNDDO
 # dfOut['Покупка'] = dfOut.reset_index().index + 2
 dfOut['Адрес'] = dfOut['url']
 del dfOut['url']
+dfOut.to_csv('output.csv', sep=';', index=False, date_format='DD.MM.YYYY')
 with pd.ExcelWriter('output.xlsx', engine='openpyxl', date_format='DD.MM.YYYY') as writer:
     dfOut.to_excel(writer, sheet_name='Выбор облигаций', index=False, float_format='%.2f')
 wb = openpyxl.load_workbook('output.xlsx')
