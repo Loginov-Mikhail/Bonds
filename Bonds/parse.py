@@ -9,7 +9,7 @@
 #                Copyright (c) 2020-2022 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
 #  Создан:        04 декабря 2020 г.
-#  Изменен:       04 сентября 2022 г.
+#  Изменен:       10 декабря 2022 г.
 # ******************************************************************************
 
 
@@ -51,9 +51,23 @@ def load_url(url):
     f.write(response)
     f.close()
 
+def validate_date(date_text):
+    isValidDate = False
+    try:
+        if (datetime.datetime.strptime(date_text, '%d.%m.%Y') > datetime.datetime.today()):
+            isValidDate = True
+        else:
+            print('Ошибка! Введена прошедшая дата.')
+    except ValueError:
+        print('Некорректный формат даты, должно быть DD.MM.YYYY')
+    return isValidDate
+
 
 def input_data():
-    finishDate = input('Введите максимально возможную дату погашения: ')
+    isValid = False
+    while (not isValid):
+        finishDate = input('Введите максимально возможную дату погашения: ')
+        isValid = validate_date(finishDate)
     finishDate = finishDate.replace('.', '%2F')
     startDate = datetime.date.today()
     startDate = startDate + datetime.timedelta(days=5)
