@@ -90,6 +90,7 @@ def select_bonds_by_redemption(startdate, finishdate):
               f'emissionForm2=&leaderDateFrom=&leaderDateTo=&placementMethod=0&quoteType=1&YTMOffer=on&YTMFrom=&' \
               f'YTMTo=&liquidRange=0&isRPS=0&liquidFrom=&liquidTo=&transactionsFrom=&transactionsTo=&liquidType=0&' \
               f'liquidTop=0&rating=&orderby=3&is_finam_placed='
+        print(url)
         load_url(url)
         n, listB = parse_file('temp.html')
         listA = listA + listB

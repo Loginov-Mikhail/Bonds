@@ -105,6 +105,7 @@ dfOut = pd.DataFrame(columns=['name', 'isin', 'redemption', 'nominal',
 fileInput = open('input.txt', 'r')
 for line in fileInput:
     url = line.replace('/default.asp', '00002/default.asp')
+    print(url)
     load_url(url)
     newRow = parse_info('temp.html')
     newRow['coupon'] = parse_payments('temp.html')
