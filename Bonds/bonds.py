@@ -8,7 +8,7 @@
 #   python3 bonds.py
 #                Copyright (c) 2018 - 2022 Логинов М.Д.
 #  Разработчик: Логинов М.Д.
-#  Модифицирован: 13 декабря 2022 г.
+#  Модифицирован: 14 декабря 2022 г.
 # ******************************************************************************
 
 # -*- coding: utf-8 -*-
@@ -50,6 +50,20 @@ def load_bonds_info():
 
 
 # ******************************************************************************
+# Функция получения суммы купонных выплат по облигации
+# ******************************************************************************
+def load_coupons_info(isinCode):
+    url = f'https://iss.moex.com/iss/statistics/engines/stock/markets/bonds' \
+          f'/bondization/{isinCode}.csv?iss.only=coupons&' \
+          f'coupons.columns=coupondate,value_rub&limit=100'
+    load_url(url)
+    dfCoupons = pd.read_csv('temp.html', header=1, encoding='cp1251', sep=';')
+    dfCoupons['coupondate'] = pd.to_datetime(dfCoupons['coupondate'])
+    dfCoupons = dfCoupons[dfCoupons['coupondate'] >= datetime.datetime.now()]
+    return 0.87 * dfCoupons['value_rub'].sum()
+
+
+# ******************************************************************************
 # Функция проверки корректности даты
 # ******************************************************************************
 def validate_date(dateText):
@@ -86,13 +100,26 @@ def filter_data(df, startDate, finishDate):
     df = df[df['MATDATE'] != '0000-00-00']
     df['MATDATE'] = pd.to_datetime(df['MATDATE'])
     df = df[df['MATDATE'] <= finishDate]
+    df = df[df['MATDATE'] >= startDate]
+    df['NEXTCOUPON'] = pd.to_datetime(df['NEXTCOUPON'])
     df = df[df['FACEUNIT'] == 'SUR']
     del df['FACEUNIT']
     # Пока удаляю эти колонки, позднее планирую их использовать
     del df['OFFERDATE']
     del df['REGNUMBER']
-    df.info()
     return df
+
+
+# ******************************************************************************
+# Функция расчета совокупных купонных выплат по облигации
+# ******************************************************************************
+def calculate_coupons(x):
+    coupons = 0
+    if (x[1] == x[2]):
+        coupons = 0.87 * x[0]
+    else:
+        coupons = load_coupons_info(x[3])
+    return coupons
 
 
 # ******************************************************************************
@@ -102,7 +129,8 @@ def prepare_data_for_saving(df):
     df.set_axis(['Наименование', 'ISIN код', 'Дата погашения', 'Номинал',
                  'Купон', 'url'],
                 axis='columns', inplace=True)
-    df['Купон'] = 0.87 * df['Купон']
+    df['Купон'] = df.loc[:, ['Купон', 'Дата погашения', 'url', 'ISIN код']].\
+        apply(calculate_coupons, axis=1)
     df['Цена, %'] = 100.01
     df['НКД'] = 123.01
     df['Покупка'] = list(map(lambda x: f'=F{x + 2}*D{x + 2}/100+G{x + 2}',
