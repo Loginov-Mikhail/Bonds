@@ -17,6 +17,10 @@ import datetime
 import pandas as pd
 
 
+# Путь к файлу csv для сохранения исходных данных для скрипта QUIK
+OUTPUT_CSV = f'~/.wine/drive_c/GPB-i-Trade QUIK_x64_SSL/Scripts/BondsPrice/' \
+             f'output.csv'
+
 # ******************************************************************************
 # Функция сохранения страницы во временный файл
 # ******************************************************************************
@@ -85,24 +89,27 @@ def validate_date(dateText):
 def input_data():
     isValid = False
     while (not isValid):
-        finishDate = input('Введите максимально возможную дату погашения: ')
+        startDate = input('Введите дату начала периода: ')
+        isValid = validate_date(startDate)
+    startDate = datetime.datetime.strptime(startDate, '%d.%m.%Y')
+    isValid = False
+    while (not isValid):
+        finishDate = input('Введите дату окончания периода: ')
         isValid = validate_date(finishDate)
     finishDate = datetime.datetime.strptime(finishDate, '%d.%m.%Y')
-    startDate = datetime.datetime.now()
-    startDate = startDate + datetime.timedelta(days=5)
     return startDate, finishDate
 
 
 # ******************************************************************************
-# Функция фильтрации данных
+# Функция начальной фильтрации данных
 # ******************************************************************************
-def filter_data(df, startDate, finishDate):
+def first_filter_data(df, startDate, finishDate):
     df = df[df['MATDATE'] != '0000-00-00']
     df = df[df['NEXTCOUPON'] != '0000-00-00']
     df['MATDATE'] = pd.to_datetime(df['MATDATE'])
-    df = df[df['MATDATE'] <= finishDate]
     df = df[df['MATDATE'] >= startDate]
     df['NEXTCOUPON'] = pd.to_datetime(df['NEXTCOUPON'])
+    df = df[df['NEXTCOUPON'] <= finishDate]
     df = df[df['FACEUNIT'] == 'SUR']
     del df['FACEUNIT']
     # Пока удаляю эти колонки, позднее планирую их использовать
@@ -157,9 +164,9 @@ def prepare_data_for_saving(df):
 def create_csv():
     start, finish = input_data()
     dfBonds = load_bonds_info()
-    dfBonds = filter_data(dfBonds, start, finish)
-    dfBonds = prepare_data_for_saving(dfBonds)
-    dfBonds.to_csv('output.csv', sep=';', index=False, encoding='cp1251',
+    dfBonds = first_filter_data(dfBonds, start, finish)
+    #dfBonds = prepare_data_for_saving(dfBonds)
+    dfBonds.to_csv(OUTPUT_CSV, sep=';', index=False, encoding='cp1251',
                    float_format='%10.2f')
 
 
