@@ -98,6 +98,7 @@ def input_data():
 # ******************************************************************************
 def filter_data(df, startDate, finishDate):
     df = df[df['MATDATE'] != '0000-00-00']
+    df = df[df['NEXTCOUPON'] != '0000-00-00']
     df['MATDATE'] = pd.to_datetime(df['MATDATE'])
     df = df[df['MATDATE'] <= finishDate]
     df = df[df['MATDATE'] >= startDate]
